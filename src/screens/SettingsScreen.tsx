@@ -1,0 +1,299 @@
+import React, { useState, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  Switch,
+  ActivityIndicator,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { FONT } from '../constants/fonts';
+import {
+  COUNTRIES,
+  PERSONALITIES,
+  DAILY_GOALS,
+  THEME_OPTIONS,
+} from '../constants/settingsOptions';
+import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import apiService from '../services/api';
+import type { UpdateUserRequest } from '../types';
+import { ProfileCard } from '../components/settings/ProfileCard';
+import { SettingsExpandableRow } from '../components/settings/SettingsExpandableRow';
+
+export default function SettingsScreen() {
+  const { preference, setPreference, colors: COLORS } = useTheme();
+  const { user, signOut, updateUserData, refreshUser } = useAuth();
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [showPersonalityPicker, setShowPersonalityPicker] = useState(false);
+  const [showGoalPicker, setShowGoalPicker] = useState(false);
+  const [showThemePicker, setShowThemePicker] = useState(false);
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { flex: 1, backgroundColor: COLORS.background },
+        loadingContainer: {
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: COLORS.background,
+        },
+        contentContainer: { padding: 16 },
+        section: { marginBottom: 24 },
+        sectionTitle: {
+          fontSize: 18,
+          color: COLORS.textPrimary,
+          fontFamily: FONT.bold,
+          marginBottom: 12,
+        },
+        picker: {
+          backgroundColor: COLORS.surface,
+          borderRadius: 12,
+          marginBottom: 8,
+          overflow: 'hidden',
+        },
+        pickerItem: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: COLORS.lightGray,
+        },
+        pickerItemText: { fontSize: 16, color: COLORS.textPrimary, fontFamily: FONT.regular },
+        personalityItem: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+        personalityText: { flex: 1 },
+        personalityDescription: {
+          fontSize: 12,
+          color: COLORS.textMuted,
+          fontFamily: FONT.regular,
+          marginTop: 2,
+        },
+        settingItem: {
+          backgroundColor: COLORS.surface,
+          borderRadius: 12,
+          padding: 16,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 8,
+        },
+        settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+        settingLabel: { fontSize: 16, color: COLORS.textPrimary, fontFamily: FONT.medium },
+        settingDescription: {
+          fontSize: 12,
+          color: COLORS.textMuted,
+          fontFamily: FONT.regular,
+          marginTop: 2,
+        },
+        signOutButton: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: COLORS.surface,
+          borderRadius: 12,
+          padding: 16,
+          gap: 8,
+          marginTop: 16,
+        },
+        signOutText: { fontSize: 16, color: COLORS.error, fontFamily: FONT.semibold },
+        version: {
+          textAlign: 'center',
+          fontSize: 12,
+          color: COLORS.textMuted,
+          fontFamily: FONT.regular,
+          marginTop: 24,
+          marginBottom: 8,
+        },
+      }),
+    [COLORS]
+  );
+
+  const updateSettings = async (data: UpdateUserRequest) => {
+    if (!user) return;
+    try {
+      await apiService.updateUser(data);
+      updateUserData(data);
+      await refreshUser();
+    } catch {
+      Alert.alert('Error', 'Could not update settings');
+    }
+  };
+
+  const selectedCountry = COUNTRIES.find((c) => c.code === user?.country);
+  const selectedPersonality = PERSONALITIES.find((p) => p.value === user?.botPersonality);
+  const selectedTheme = THEME_OPTIONS.find((t) => t.value === preference);
+
+  const handleSignOut = () => {
+    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: signOut },
+    ]);
+  };
+
+  if (!user) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      <ProfileCard name={user.name} email={user.email} />
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Appearance</Text>
+        <SettingsExpandableRow
+          icon="moon-outline"
+          label="Theme"
+          description="System, light, or dark"
+          valueLabel={selectedTheme?.label ?? ''}
+          expanded={showThemePicker}
+          onPress={() => setShowThemePicker(!showThemePicker)}
+        />
+        {showThemePicker && (
+          <View style={styles.picker}>
+            {THEME_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.value}
+                style={styles.pickerItem}
+                onPress={async () => {
+                  await setPreference(opt.value);
+                  setShowThemePicker(false);
+                }}
+              >
+                <Text style={styles.pickerItemText}>{opt.label}</Text>
+                {preference === opt.value && (
+                  <Ionicons name="checkmark" size={20} color={COLORS.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Profile</Text>
+        <SettingsExpandableRow
+          icon="globe-outline"
+          label="Country"
+          valueLabel={`${selectedCountry?.flag ?? ''} ${selectedCountry?.name ?? ''}`}
+          expanded={showCountryPicker}
+          onPress={() => setShowCountryPicker(!showCountryPicker)}
+        />
+        {showCountryPicker && (
+          <View style={styles.picker}>
+            {COUNTRIES.map((country) => (
+              <TouchableOpacity
+                key={country.code}
+                style={styles.pickerItem}
+                onPress={async () => {
+                  await updateSettings({ country: country.code });
+                  setShowCountryPicker(false);
+                }}
+              >
+                <Text style={styles.pickerItemText}>
+                  {country.flag} {country.name}
+                </Text>
+                {user.country === country.code && (
+                  <Ionicons name="checkmark" size={20} color={COLORS.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Bot settings</Text>
+        <SettingsExpandableRow
+          icon="person-outline"
+          label="Bot personality"
+          valueLabel={selectedPersonality?.label ?? ''}
+          expanded={showPersonalityPicker}
+          onPress={() => setShowPersonalityPicker(!showPersonalityPicker)}
+        />
+        {showPersonalityPicker && (
+          <View style={styles.picker}>
+            {PERSONALITIES.map((personality) => (
+              <TouchableOpacity
+                key={personality.value}
+                style={styles.pickerItem}
+                onPress={async () => {
+                  await updateSettings({ botPersonality: personality.value });
+                  setShowPersonalityPicker(false);
+                }}
+              >
+                <View style={styles.personalityItem}>
+                  <Ionicons name={personality.icon} size={20} color={COLORS.primary} />
+                  <View style={styles.personalityText}>
+                    <Text style={styles.pickerItemText}>{personality.label}</Text>
+                    <Text style={styles.personalityDescription}>{personality.description}</Text>
+                  </View>
+                </View>
+                {user.botPersonality === personality.value && (
+                  <Ionicons name="checkmark" size={20} color={COLORS.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        <SettingsExpandableRow
+          icon="trophy-outline"
+          label="Daily goal"
+          valueLabel={String(user.karmaDailyGoal)}
+          expanded={showGoalPicker}
+          onPress={() => setShowGoalPicker(!showGoalPicker)}
+        />
+        {showGoalPicker && (
+          <View style={styles.picker}>
+            {DAILY_GOALS.map((goal) => (
+              <TouchableOpacity
+                key={goal}
+                style={styles.pickerItem}
+                onPress={async () => {
+                  await updateSettings({ karmaDailyGoal: goal });
+                  setShowGoalPicker(false);
+                }}
+              >
+                <Text style={styles.pickerItemText}>{goal} karma</Text>
+                {user.karmaDailyGoal === goal && (
+                  <Ionicons name="checkmark" size={20} color={COLORS.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        <View style={styles.settingItem}>
+          <View style={styles.settingLeft}>
+            <Ionicons name="notifications-outline" size={20} color={COLORS.primary} />
+            <View>
+              <Text style={styles.settingLabel}>Reminders</Text>
+              <Text style={styles.settingDescription}>Daily notifications</Text>
+            </View>
+          </View>
+          <Switch
+            value={user.isNotificationReminder}
+            onValueChange={(v) => updateSettings({ isNotificationReminder: v })}
+            trackColor={{ false: COLORS.lightGray, true: COLORS.secondary }}
+            thumbColor={user.isNotificationReminder ? COLORS.primary : COLORS.white}
+          />
+        </View>
+      </View>
+
+      <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+        <Ionicons name="log-out-outline" size={20} color={COLORS.error} />
+        <Text style={styles.signOutText}>Sign out</Text>
+      </TouchableOpacity>
+
+      <Text style={styles.version}>Version 1.0.0</Text>
+    </ScrollView>
+  );
+}
