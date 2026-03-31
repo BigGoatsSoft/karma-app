@@ -1,4 +1,4 @@
-/** Typical backend error JSON */
+/** Typical backend error JSON (NestJS validation returns message as string[]) */
 export interface ApiErrorBody {
-  message?: string;
+  message?: string | string[];
 }

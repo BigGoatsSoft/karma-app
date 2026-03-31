@@ -1,8 +1,8 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import apiService from '../services/api';
+import apiService, { setOnUnauthorized } from '../services/api';
 import { User } from '../types';
 import { GOOGLE_CLIENT_ID } from '../config/env';
 
@@ -30,8 +30,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     scopes: ['profile', 'email'],
   });
 
+  // Keep a ref so the 401 callback always calls the latest signOut
+  const signOutRef = useRef<() => Promise<void>>();
+
   useEffect(() => {
     loadStorageData();
+  }, []);
+
+  useEffect(() => {
+    setOnUnauthorized(() => signOutRef.current?.());
+    return () => setOnUnauthorized(null);
   }, []);
 
   useEffect(() => {
@@ -110,11 +118,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   async function signOut() {
     try {
       await AsyncStorage.removeItem('accessToken');
-      setUser(null);
     } catch (error) {
       console.error('Sign out error:', error);
+    } finally {
+      setUser(null);
     }
   }
+
+  signOutRef.current = signOut;
 
   function updateUserData(data: Partial<User>) {
     if (user) {

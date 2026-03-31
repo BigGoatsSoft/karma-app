@@ -11,6 +11,13 @@ import type {
   User,
 } from '../types';
 
+let onUnauthorized: (() => void) | null = null;
+
+/** Register a callback that will be invoked whenever the API receives a 401. */
+export function setOnUnauthorized(cb: (() => void) | null) {
+  onUnauthorized = cb;
+}
+
 class ApiService {
   private api: AxiosInstance;
 
@@ -39,6 +46,7 @@ class ApiService {
       async (error: AxiosError<ApiErrorBody>) => {
         if (error.response?.status === 401) {
           await AsyncStorage.removeItem('accessToken');
+          onUnauthorized?.();
         }
         return Promise.reject(error);
       }
