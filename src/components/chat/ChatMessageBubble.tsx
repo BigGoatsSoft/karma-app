@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useMemo, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FONT } from '../../constants/fonts';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -11,6 +11,40 @@ interface Props {
 
 export function ChatMessageBubble({ item }: Props) {
   const { colors: COLORS } = useTheme();
+
+  const karmaAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!item.isUser && item.karma !== 0) {
+      karmaAnim.setValue(0);
+      Animated.spring(karmaAnim, {
+        toValue: 1,
+        delay: 180,
+        useNativeDriver: true,
+        tension: 120,
+        friction: 8,
+      }).start();
+    }
+  }, [item.id]);
+
+  const karmaAnimStyle = {
+    opacity: karmaAnim,
+    transform: [
+      {
+        translateY: karmaAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [6, 0],
+        }),
+      },
+      {
+        scale: karmaAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.85, 1],
+        }),
+      },
+    ],
+  };
+
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -34,6 +68,16 @@ export function ChatMessageBubble({ item }: Props) {
           alignItems: 'center',
           marginTop: 8,
           gap: 4,
+          alignSelf: 'flex-start',
+          paddingHorizontal: 8,
+          paddingVertical: 3,
+          borderRadius: 20,
+        },
+        karmaPositive: {
+          backgroundColor: `${COLORS.success}18`,
+        },
+        karmaNegative: {
+          backgroundColor: `${COLORS.error}18`,
         },
         karmaText: { fontSize: 13, fontFamily: FONT.semibold },
       }),
@@ -49,10 +93,16 @@ export function ChatMessageBubble({ item }: Props) {
           {item.text}
         </Text>
         {!item.isUser && item.karma !== 0 && (
-          <View style={styles.karmaContainer}>
+          <Animated.View
+            style={[
+              styles.karmaContainer,
+              item.karma > 0 ? styles.karmaPositive : styles.karmaNegative,
+              karmaAnimStyle,
+            ]}
+          >
             <Ionicons
-              name={item.karma > 0 ? 'arrow-up' : 'arrow-down'}
-              size={14}
+              name={item.karma > 0 ? 'arrow-up-circle' : 'arrow-down-circle'}
+              size={15}
               color={item.karma > 0 ? COLORS.success : COLORS.error}
             />
             <Text
@@ -61,7 +111,7 @@ export function ChatMessageBubble({ item }: Props) {
               {item.karma > 0 ? '+' : ''}
               {item.karma} karma
             </Text>
-          </View>
+          </Animated.View>
         )}
       </View>
     </View>

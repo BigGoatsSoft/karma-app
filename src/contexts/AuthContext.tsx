@@ -66,17 +66,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const userData = await apiService.getUser();
       setUser(userData);
-    } catch (error) {
-      console.error('Error fetching user:', error);
-      await AsyncStorage.removeItem('accessToken');
-      setUser(null);
+    } catch (error: unknown) {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status === 401 || status === 403) {
+        // Token is truly invalid/expired and refresh already failed inside the interceptor
+        await AsyncStorage.multiRemove(['accessToken', 'refreshToken']);
+        setUser(null);
+      }
+      // For network errors (ECONNRESET, timeout) or 5xx — keep the user logged in,
+      // the session is still valid; just log for debugging.
+      console.error('Error fetching user (status=%s):', status ?? 'network', error);
+    }
+  }
+
+  async function storeTokens(response: { accessToken: string; refreshToken?: string }) {
+    await AsyncStorage.setItem('accessToken', response.accessToken);
+    if (response.refreshToken) {
+      await AsyncStorage.setItem('refreshToken', response.refreshToken);
     }
   }
 
   async function signIn(email: string, password: string) {
     try {
       const response = await apiService.login(email, password);
-      await AsyncStorage.setItem('accessToken', response.accessToken);
+      await storeTokens(response);
       await fetchUser();
     } catch (error) {
       console.error('Login error:', error);
@@ -87,7 +100,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   async function signUp(email: string, name: string, password: string) {
     try {
       const response = await apiService.signUp(email, name, password);
-      await AsyncStorage.setItem('accessToken', response.accessToken);
+      await storeTokens(response);
       await fetchUser();
     } catch (error) {
       console.error('SignUp error:', error);
@@ -98,7 +111,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   async function handleGoogleSignIn(googleToken: string) {
     try {
       const response = await apiService.loginWithGoogle(googleToken);
-      await AsyncStorage.setItem('accessToken', response.accessToken);
+      await storeTokens(response);
       await fetchUser();
     } catch (error) {
       console.error('Google sign in error:', error);
@@ -117,7 +130,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   async function signOut() {
     try {
-      await AsyncStorage.removeItem('accessToken');
+      await AsyncStorage.multiRemove(['accessToken', 'refreshToken']);
     } catch (error) {
       console.error('Sign out error:', error);
     } finally {

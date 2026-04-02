@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import apiService from '../services/api';
@@ -17,6 +18,8 @@ export default function KarmaScreen() {
   const { user, refreshUser } = useAuth();
   const [karmaHistory, setKarmaHistory] = useState<KarmaResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const focusCount = useRef(0);
+  const [animKey, setAnimKey] = useState(0);
 
   const styles = useMemo(
     () =>
@@ -38,6 +41,13 @@ export default function KarmaScreen() {
     const interval = setInterval(loadData, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      focusCount.current += 1;
+      setAnimKey(focusCount.current);
+    }, [])
+  );
 
   const loadData = async () => {
     try {
@@ -67,9 +77,9 @@ export default function KarmaScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <KarmaHeroCircle karma={user.karma} />
+      <KarmaHeroCircle karma={user.karma} todayKarma={todayKarma} dailyGoal={user.karmaDailyGoal} animKey={animKey} />
       <KarmaSectionTitle title="Your karma" subtitle="Keep doing good deeds" />
-      <KarmaDailyGoalCard todayKarma={todayKarma} dailyGoal={user.karmaDailyGoal} />
+      <KarmaDailyGoalCard todayKarma={todayKarma} dailyGoal={user.karmaDailyGoal} animKey={animKey} />
       <KarmaStatsRow goodCount={positiveActions} badCount={negativeActions} />
       <KarmaWeeklyCard weeklyTotal={weeklyKarma} />
       <KarmaRecentActions entries={karmaHistory.slice(0, 5)} />

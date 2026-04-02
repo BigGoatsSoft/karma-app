@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useMemo, useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { FONT } from '../../constants/fonts';
@@ -7,11 +7,25 @@ import { FONT } from '../../constants/fonts';
 interface Props {
   todayKarma: number;
   dailyGoal: number;
+  animKey: number;
 }
 
-export function KarmaDailyGoalCard({ todayKarma, dailyGoal }: Props) {
+export function KarmaDailyGoalCard({ todayKarma, dailyGoal, animKey }: Props) {
   const { colors: COLORS } = useTheme();
-  const dailyProgress = Math.min((todayKarma / dailyGoal) * 100, 100);
+  const dailyProgress = Math.min(todayKarma / dailyGoal, 1);
+
+  const [barWidth, setBarWidth] = useState(0);
+  const animWidth = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (animKey === 0 || barWidth === 0) return;
+    animWidth.setValue(0);
+    Animated.timing(animWidth, {
+      toValue: dailyProgress * barWidth,
+      duration: 1000,
+      useNativeDriver: false,
+    }).start();
+  }, [animKey, barWidth, dailyProgress]);
 
   const styles = useMemo(
     () =>
@@ -48,8 +62,8 @@ export function KarmaDailyGoalCard({ todayKarma, dailyGoal }: Props) {
         },
         progressFill: {
           height: '100%',
-          backgroundColor: COLORS.primary,
           borderRadius: 4,
+          backgroundColor: dailyProgress >= 1 ? COLORS.success : COLORS.primary,
         },
         successText: {
           fontSize: 14,
@@ -58,7 +72,7 @@ export function KarmaDailyGoalCard({ todayKarma, dailyGoal }: Props) {
           marginTop: 8,
         },
       }),
-    [COLORS]
+    [COLORS, dailyProgress]
   );
 
   return (
@@ -72,8 +86,11 @@ export function KarmaDailyGoalCard({ todayKarma, dailyGoal }: Props) {
           {todayKarma} / {dailyGoal}
         </Text>
       </View>
-      <View style={styles.progressBar}>
-        <View style={[styles.progressFill, { width: `${dailyProgress}%` }]} />
+      <View
+        style={styles.progressBar}
+        onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
+      >
+        <Animated.View style={[styles.progressFill, { width: animWidth }]} />
       </View>
       {todayKarma >= dailyGoal && <Text style={styles.successText}>🎉 Goal reached!</Text>}
     </View>

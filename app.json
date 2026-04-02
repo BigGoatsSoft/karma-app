@@ -2,6 +2,7 @@
   "expo": {
     "name": "Karma Tracker",
     "slug": "karma-tracker",
+    "scheme": "karma-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
