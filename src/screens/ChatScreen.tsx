@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   FlatList,
   KeyboardAvoidingView,
@@ -8,13 +9,16 @@ import {
   ActivityIndicator,
   Alert,
   TouchableOpacity,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import apiService from '../services/api';
-import type { KarmaResponse } from '../types';
+import type { KarmaResponse, User } from '../types';
 import type { ChatMessage } from '../types/chat';
+import { FONT } from '../constants/fonts';
 import { ChatMessageBubble } from '../components/chat/ChatMessageBubble';
 import { ChatEmptyState } from '../components/chat/ChatEmptyState';
 import { ChatComposer } from '../components/chat/ChatComposer';
@@ -35,10 +39,11 @@ export default function ChatScreen() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [newChatConfirmVisible, setNewChatConfirmVisible] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
   const flatListRef = useRef<FlatList>(null);
-  const { refreshUser } = useAuth();
+  const { user, refreshUser, updateUserData } = useAuth();
 
   const styles = useMemo(
     () =>
@@ -72,9 +77,63 @@ export default function ChatScreen() {
           top: 16,
           left: 16,
         },
-        newChatBtn: {
-          bottom: 16,
-          left: 16,
+        // Confirm modal
+        modalOverlay: {
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.45)',
+          justifyContent: 'flex-end',
+        },
+        confirmSheet: {
+          backgroundColor: COLORS.background,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          paddingHorizontal: 20,
+          paddingBottom: 36,
+          paddingTop: 6,
+        },
+        confirmHandle: {
+          width: 40,
+          height: 4,
+          borderRadius: 2,
+          backgroundColor: COLORS.lightGray,
+          alignSelf: 'center',
+          marginBottom: 20,
+          marginTop: 12,
+        },
+        confirmTitle: {
+          fontSize: 18,
+          fontFamily: FONT.bold,
+          color: COLORS.textPrimary,
+          marginBottom: 6,
+        },
+        confirmSubtitle: {
+          fontSize: 14,
+          fontFamily: FONT.regular,
+          color: COLORS.textMuted,
+          marginBottom: 24,
+        },
+        confirmBtnPrimary: {
+          backgroundColor: COLORS.primary,
+          borderRadius: 14,
+          paddingVertical: 14,
+          alignItems: 'center',
+          marginBottom: 10,
+        },
+        confirmBtnPrimaryText: {
+          fontSize: 16,
+          fontFamily: FONT.semibold,
+          color: COLORS.white,
+        },
+        confirmBtnCancel: {
+          backgroundColor: COLORS.surface,
+          borderRadius: 14,
+          paddingVertical: 14,
+          alignItems: 'center',
+        },
+        confirmBtnCancelText: {
+          fontSize: 16,
+          fontFamily: FONT.semibold,
+          color: COLORS.textPrimary,
         },
       }),
     [COLORS]
@@ -93,7 +152,6 @@ export default function ChatScreen() {
       ]);
 
       if (savedSessions.length === 0) {
-        // First launch — seed from server history
         const formattedMessages: ChatMessage[] = serverHistory.flatMap((entry: KarmaResponse) => [
           { ...entry, id: `user-${entry.id}`, isUser: true },
           { ...entry, id: `bot-${entry.id}`, isUser: false },
@@ -105,8 +163,7 @@ export default function ChatScreen() {
         setCurrentSession(initialSession);
         setMessages(formattedMessages);
       } else {
-        const active =
-          savedSessions.find((s) => s.id === currentId) ?? savedSessions[0];
+        const active = savedSessions.find((s) => s.id === currentId) ?? savedSessions[0];
         setSessions(savedSessions);
         setCurrentSession(active);
         setMessages(active.messages);
@@ -118,10 +175,7 @@ export default function ChatScreen() {
     }
   };
 
-  const persistCurrentSession = async (
-    session: ChatSession,
-    updatedMessages: ChatMessage[]
-  ) => {
+  const persistCurrentSession = async (session: ChatSession, updatedMessages: ChatMessage[]) => {
     const firstUserMsg = updatedMessages.find((m) => m.isUser);
     const updated: ChatSession = {
       ...session,
@@ -179,10 +233,13 @@ export default function ChatScreen() {
     }
   };
 
-  const handleNewChat = async () => {
-    // If the current chat is already empty, there's nothing to start fresh from
+  const handleNewChatRequest = () => {
     if (messages.length === 0) return;
+    setNewChatConfirmVisible(true);
+  };
 
+  const confirmNewChat = async () => {
+    setNewChatConfirmVisible(false);
     if (currentSession) {
       await persistCurrentSession(currentSession, messages);
     }
@@ -203,6 +260,15 @@ export default function ChatScreen() {
     setCurrentSession(session);
     setMessages(session.messages);
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 50);
+  };
+
+  const handlePersonalityChange = async (p: User['botPersonality']) => {
+    try {
+      await apiService.updateUser({ botPersonality: p });
+      updateUserData({ botPersonality: p });
+    } catch {
+      Alert.alert('Error', 'Could not update personality');
+    }
   };
 
   if (initialLoading) {
@@ -239,16 +305,6 @@ export default function ChatScreen() {
             <Ionicons name="time-outline" size={22} color={COLORS.white} />
           </TouchableOpacity>
 
-          {/* New Chat button — bottom left */}
-          <TouchableOpacity
-            style={[styles.floatingBtn, styles.newChatBtn]}
-            onPress={handleNewChat}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="add" size={24} color={COLORS.white} />
-          </TouchableOpacity>
-
-          {/* Drawer and overlay rendered inside chatArea so they respect KAV */}
           <ChatHistoryDrawer
             visible={drawerOpen}
             sessions={sessions}
@@ -263,8 +319,42 @@ export default function ChatScreen() {
           onChangeText={setInputText}
           onSend={handleSendMessage}
           loading={loading}
+          onNewChat={handleNewChatRequest}
+          personality={user?.botPersonality ?? 'neutral'}
+          onPersonalityChange={handlePersonalityChange}
         />
       </KeyboardAvoidingView>
+
+      {/* New Chat confirmation */}
+      <Modal
+        visible={newChatConfirmVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setNewChatConfirmVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setNewChatConfirmVisible(false)}
+        >
+          <Pressable onPress={(e) => e.stopPropagation()} style={styles.confirmSheet}>
+            <View style={styles.confirmHandle} />
+            <Text style={styles.confirmTitle}>Start a new chat?</Text>
+            <Text style={styles.confirmSubtitle}>
+              The current conversation will be saved in history.
+            </Text>
+            <TouchableOpacity style={styles.confirmBtnPrimary} onPress={confirmNewChat} activeOpacity={0.8}>
+              <Text style={styles.confirmBtnPrimaryText}>New Chat</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.confirmBtnCancel}
+              onPress={() => setNewChatConfirmVisible(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.confirmBtnCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }

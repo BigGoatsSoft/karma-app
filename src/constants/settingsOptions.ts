@@ -17,22 +17,22 @@ export type CountryCode = (typeof COUNTRIES)[number]['code'];
 
 export const PERSONALITIES = [
   {
-    value: 'neutral' as const,
-    label: 'Neutral',
-    icon: 'remove-circle-outline' as const,
-    description: 'Objective assessment of your actions',
+    value: 'usual' as const,
+    label: 'Usual',
+    icon: 'chatbubble-outline' as const,
+    description: 'Friendly everyday conversation',
   },
   {
-    value: 'encouraging' as const,
-    label: 'Encouraging',
-    icon: 'happy-outline' as const,
-    description: 'Positive and supportive replies',
+    value: 'business' as const,
+    label: 'Business',
+    icon: 'briefcase-outline' as const,
+    description: 'Professional and formal feedback',
   },
   {
-    value: 'strict' as const,
-    label: 'Strict',
-    icon: 'alert-circle-outline' as const,
-    description: 'Direct, demanding feedback',
+    value: 'bad_guy' as const,
+    label: 'Bad Guy 🔥 18+',
+    icon: 'flame-outline' as const,
+    description: 'Blunt, crude and brutally honest',
   },
 ];
 

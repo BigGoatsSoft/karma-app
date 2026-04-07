@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { FONT } from '../constants/fonts';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import apiService from '../services/api';
@@ -12,12 +14,14 @@ import { KarmaDailyGoalCard } from '../components/karma/KarmaDailyGoalCard';
 import { KarmaStatsRow } from '../components/karma/KarmaStatsRow';
 import { KarmaWeeklyCard } from '../components/karma/KarmaWeeklyCard';
 import { KarmaRecentActions } from '../components/karma/KarmaRecentActions';
+import { KarmaHistorySheet } from '../components/karma/KarmaHistorySheet';
 
 export default function KarmaScreen() {
   const { colors: COLORS } = useTheme();
   const { user, refreshUser } = useAuth();
   const [karmaHistory, setKarmaHistory] = useState<KarmaResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [historyVisible, setHistoryVisible] = useState(false);
   const focusCount = useRef(0);
   const [animKey, setAnimKey] = useState(0);
 
@@ -32,6 +36,27 @@ export default function KarmaScreen() {
           backgroundColor: COLORS.background,
         },
         contentContainer: { padding: 16, paddingTop: 24 },
+        historyBtn: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: COLORS.surface,
+          borderRadius: 16,
+          paddingHorizontal: 16,
+          paddingVertical: 16,
+          marginBottom: 16,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+          elevation: 2,
+        },
+        historyBtnLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+        historyBtnText: {
+          fontSize: 16,
+          fontFamily: FONT.semibold,
+          color: COLORS.textPrimary,
+        },
       }),
     [COLORS]
   );
@@ -76,13 +101,35 @@ export default function KarmaScreen() {
   const weeklyKarma = sumWeeklyKarma(karmaHistory);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <KarmaHeroCircle karma={user.karma} todayKarma={todayKarma} dailyGoal={user.karmaDailyGoal} animKey={animKey} />
-      <KarmaSectionTitle title="Your karma" subtitle="Keep doing good deeds" />
-      <KarmaDailyGoalCard todayKarma={todayKarma} dailyGoal={user.karmaDailyGoal} animKey={animKey} />
-      <KarmaStatsRow goodCount={positiveActions} badCount={negativeActions} />
-      <KarmaWeeklyCard weeklyTotal={weeklyKarma} />
-      <KarmaRecentActions entries={karmaHistory.slice(0, 5)} />
-    </ScrollView>
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.contentContainer}>
+        <KarmaHeroCircle karma={user.karma} todayKarma={todayKarma} dailyGoal={user.karmaDailyGoal} animKey={animKey} />
+        <KarmaSectionTitle title="Your karma" subtitle="Keep doing good deeds" />
+        <KarmaDailyGoalCard todayKarma={todayKarma} dailyGoal={user.karmaDailyGoal} animKey={animKey} />
+        <KarmaStatsRow goodCount={positiveActions} badCount={negativeActions} />
+        <KarmaWeeklyCard weeklyTotal={weeklyKarma} />
+
+        <TouchableOpacity
+          style={styles.historyBtn}
+          onPress={() => setHistoryVisible(true)}
+          activeOpacity={0.75}
+        >
+          <View style={styles.historyBtnLeft}>
+            <Ionicons name="time" size={20} color={COLORS.primary} />
+            <Text style={styles.historyBtnText}>Karma History</Text>
+          </View>
+          <Ionicons name="chevron-up" size={18} color={COLORS.textMuted} />
+        </TouchableOpacity>
+
+        <KarmaRecentActions entries={karmaHistory.slice(0, 5)} />
+      </ScrollView>
+
+      <KarmaHistorySheet
+        visible={historyVisible}
+        totalKarma={user.karma}
+        entries={karmaHistory}
+        onClose={() => setHistoryVisible(false)}
+      />
+    </View>
   );
 }

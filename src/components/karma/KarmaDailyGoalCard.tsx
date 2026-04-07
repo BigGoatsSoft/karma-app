@@ -12,7 +12,7 @@ interface Props {
 
 export function KarmaDailyGoalCard({ todayKarma, dailyGoal, animKey }: Props) {
   const { colors: COLORS } = useTheme();
-  const dailyProgress = Math.min(todayKarma / dailyGoal, 1);
+  const dailyProgress = todayKarma <= 0 ? 0 : Math.min(todayKarma / dailyGoal, 1);
 
   const [barWidth, setBarWidth] = useState(0);
   const animWidth = useRef(new Animated.Value(0)).current;

@@ -13,7 +13,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { FONT } from '../constants/fonts';
 import {
   COUNTRIES,
-  PERSONALITIES,
   DAILY_GOALS,
   THEME_OPTIONS,
 } from '../constants/settingsOptions';
@@ -28,7 +27,6 @@ export default function SettingsScreen() {
   const { preference, setPreference, colors: COLORS } = useTheme();
   const { user, signOut, updateUserData, refreshUser } = useAuth();
   const [showCountryPicker, setShowCountryPicker] = useState(false);
-  const [showPersonalityPicker, setShowPersonalityPicker] = useState(false);
   const [showGoalPicker, setShowGoalPicker] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const styles = useMemo(
@@ -124,7 +122,6 @@ export default function SettingsScreen() {
   };
 
   const selectedCountry = COUNTRIES.find((c) => c.code === user?.country);
-  const selectedPersonality = PERSONALITIES.find((p) => p.value === user?.botPersonality);
   const selectedTheme = THEME_OPTIONS.find((t) => t.value === preference);
 
   const handleSignOut = () => {
@@ -211,39 +208,6 @@ export default function SettingsScreen() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Bot settings</Text>
-        <SettingsExpandableRow
-          icon="person-outline"
-          label="Bot personality"
-          valueLabel={selectedPersonality?.label ?? ''}
-          expanded={showPersonalityPicker}
-          onPress={() => setShowPersonalityPicker(!showPersonalityPicker)}
-        />
-        {showPersonalityPicker && (
-          <View style={styles.picker}>
-            {PERSONALITIES.map((personality) => (
-              <TouchableOpacity
-                key={personality.value}
-                style={styles.pickerItem}
-                onPress={async () => {
-                  await updateSettings({ botPersonality: personality.value });
-                  setShowPersonalityPicker(false);
-                }}
-              >
-                <View style={styles.personalityItem}>
-                  <Ionicons name={personality.icon} size={20} color={COLORS.primary} />
-                  <View style={styles.personalityText}>
-                    <Text style={styles.pickerItemText}>{personality.label}</Text>
-                    <Text style={styles.personalityDescription}>{personality.description}</Text>
-                  </View>
-                </View>
-                {user.botPersonality === personality.value && (
-                  <Ionicons name="checkmark" size={20} color={COLORS.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
         <SettingsExpandableRow
           icon="trophy-outline"
           label="Daily goal"
