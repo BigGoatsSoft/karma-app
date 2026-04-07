@@ -2,36 +2,41 @@
   "expo": {
     "name": "Karma Tracker",
     "slug": "karma-tracker",
+    "owner": "snorlaxida",
     "scheme": "karma-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#2D6A4F"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.biggoatssoft.karmatracker"
+      "bundleIdentifier": "com.biggoatssoft.karmatracker",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.279743954969-7qnfkv9c22ppq5k117so89sbrqb1gtqq"
+            ]
+          }
+        ]
+      }
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#2D6A4F"
-      },
       "package": "com.biggoatssoft.karmatracker"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "bundler": "metro"
     },
     "plugins": [
       "expo-font",
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b0ac772d-ab65-41af-a806-e0bd62eb9743"
+      }
+    }
   }
 }

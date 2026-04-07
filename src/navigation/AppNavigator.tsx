@@ -15,12 +15,14 @@ import ChatScreen from '../screens/ChatScreen';
 import KarmaScreen from '../screens/KarmaScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 function MainTabs() {
   const { colors: COLORS } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const screenOptions = useCallback(
     ({ route }: { route: { name: string } }) => ({
@@ -42,8 +44,8 @@ function MainTabs() {
       tabBarStyle: {
         backgroundColor: COLORS.surface,
         borderTopColor: COLORS.lightGray,
-        height: 60,
-        paddingBottom: 8,
+        height: 60 + insets.bottom,
+        paddingBottom: 8 + insets.bottom,
         paddingTop: 8,
       },
       tabBarLabelStyle: {
@@ -58,7 +60,7 @@ function MainTabs() {
         fontFamily: FONT.bold,
       },
     }),
-    [COLORS]
+    [COLORS, insets]
   );
 
   return (

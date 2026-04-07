@@ -2,11 +2,34 @@ import React, { createContext, useState, useContext, useEffect, useRef, ReactNod
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
+import { makeRedirectUri } from 'expo-auth-session';
 import apiService, { setOnUnauthorized } from '../services/api';
 import { User } from '../types';
-import { GOOGLE_CLIENT_ID } from '../config/env';
+import {
+  GOOGLE_ANDROID_CLIENT_ID,
+  GOOGLE_CLIENT_ID,
+  GOOGLE_IOS_CLIENT_ID,
+  GOOGLE_WEB_CLIENT_ID,
+} from '../config/env';
 
 WebBrowser.maybeCompleteAuthSession();
+
+// On iOS, Google's iOS OAuth client pre-authorises the reversed-client-id scheme.
+// We derive it from the client ID: "279743954969-xxx.apps.googleusercontent.com"
+//                                → "com.googleusercontent.apps.279743954969-xxx:/oauth2redirect"
+// On Android, use the bundle ID-based scheme via makeRedirectUri.
+const iosClientIdReversed = GOOGLE_IOS_CLIENT_ID
+  ? `com.googleusercontent.apps.${GOOGLE_IOS_CLIENT_ID.replace('.apps.googleusercontent.com', '')}`
+  : undefined;
+
+const redirectUri = Platform.select({
+  ios: iosClientIdReversed
+    ? `${iosClientIdReversed}:/oauth2redirect`
+    : makeRedirectUri({ scheme: 'karma-tracker' }),
+  default: makeRedirectUri({ scheme: 'karma-tracker' }),
+}) ?? makeRedirectUri({ scheme: 'karma-tracker' });
+
 
 interface AuthContextData {
   user: User | null;
@@ -26,12 +49,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: GOOGLE_CLIENT_ID || 'your-google-client-id',
+    webClientId: GOOGLE_WEB_CLIENT_ID || GOOGLE_CLIENT_ID,
+    iosClientId: GOOGLE_IOS_CLIENT_ID || GOOGLE_CLIENT_ID,
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID || GOOGLE_CLIENT_ID,
     scopes: ['profile', 'email'],
+    redirectUri,
   });
 
   // Keep a ref so the 401 callback always calls the latest signOut
-  const signOutRef = useRef<() => Promise<void>>();
+  const signOutRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
   useEffect(() => {
     loadStorageData();
