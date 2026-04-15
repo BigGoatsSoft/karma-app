@@ -22,6 +22,7 @@ import apiService from '../services/api';
 import type { UpdateUserRequest } from '../types';
 import { ProfileCard } from '../components/settings/ProfileCard';
 import { SettingsExpandableRow } from '../components/settings/SettingsExpandableRow';
+import { SubscriptionModal } from '../components/subscription/SubscriptionModal';
 
 export default function SettingsScreen() {
   const { preference, setPreference, colors: COLORS } = useTheme();
@@ -29,6 +30,7 @@ export default function SettingsScreen() {
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [showGoalPicker, setShowGoalPicker] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -106,6 +108,97 @@ export default function SettingsScreen() {
           marginTop: 24,
           marginBottom: 8,
         },
+        coinsCard: {
+          backgroundColor: COLORS.surface,
+          borderRadius: 16,
+          padding: 16,
+          marginBottom: 8,
+        },
+        coinsCardTop: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 10,
+        },
+        coinsCardLeft: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+        },
+        coinsIconWrap: {
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          backgroundColor: `${COLORS.warning}22`,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        coinsLabel: {
+          fontSize: 16,
+          fontFamily: FONT.semibold,
+          color: COLORS.textPrimary,
+        },
+        coinsSubLabel: {
+          fontSize: 12,
+          fontFamily: FONT.regular,
+          color: COLORS.textMuted,
+          marginTop: 1,
+        },
+        coinsAmount: {
+          fontSize: 20,
+          fontFamily: FONT.bold,
+          color: COLORS.primary,
+        },
+        coinsBar: {
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: COLORS.lightGray,
+          overflow: 'hidden',
+          marginBottom: 6,
+        },
+        coinsBarFill: {
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: COLORS.primary,
+        },
+        coinsBarLow: {
+          backgroundColor: '#F59E0B',
+        },
+        coinsBarHint: {
+          fontSize: 11,
+          fontFamily: FONT.regular,
+          color: COLORS.textMuted,
+        },
+        upgradeBtn: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          backgroundColor: COLORS.primary,
+          borderRadius: 14,
+          paddingVertical: 14,
+          marginBottom: 8,
+        },
+        upgradeBtnText: {
+          fontSize: 16,
+          fontFamily: FONT.bold,
+          color: COLORS.white,
+        },
+        subscriptionBadge: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          backgroundColor: `${COLORS.primary}18`,
+          borderRadius: 14,
+          paddingVertical: 12,
+          marginBottom: 8,
+        },
+        subscriptionBadgeText: {
+          fontSize: 14,
+          fontFamily: FONT.semibold,
+          color: COLORS.primary,
+        },
       }),
     [COLORS]
   );
@@ -139,9 +232,74 @@ export default function SettingsScreen() {
     );
   }
 
+  const isPro = user.subscriptionType !== 'free';
+  const maxCoins = user.subscriptionType === 'pro_plus' ? 10000
+    : user.subscriptionType === 'pro' ? 5000
+    : 200;
+  const coinFraction = Math.min(user.karmaCoins / maxCoins, 1);
+  const isLow = !isPro && user.karmaCoins <= 30;
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <ProfileCard name={user.name} email={user.email} />
+
+      {/* KarmaCoins section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>KarmaCoins</Text>
+
+        <View style={styles.coinsCard}>
+          <View style={styles.coinsCardTop}>
+            <View style={styles.coinsCardLeft}>
+              <View style={styles.coinsIconWrap}>
+                <Text style={{ fontSize: 20 }}>🪙</Text>
+              </View>
+              <View>
+                <Text style={styles.coinsLabel}>
+                  {isPro ? `${user.subscriptionType === 'pro_plus' ? 'Pro+' : 'Pro'} Plan` : 'Free Plan'}
+                </Text>
+                <Text style={styles.coinsSubLabel}>
+                  {isPro ? 'Resets monthly' : '200 coins/day · resets daily'}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.coinsAmount}>{user.karmaCoins}</Text>
+          </View>
+
+          <View style={styles.coinsBar}>
+            <View
+              style={[
+                styles.coinsBarFill,
+                { width: `${coinFraction * 100}%` },
+                isLow && styles.coinsBarLow,
+              ]}
+            />
+          </View>
+          <Text style={styles.coinsBarHint}>
+            {user.karmaCoins} / {maxCoins} coins remaining · 10 coins per request
+          </Text>
+        </View>
+
+        {isPro ? (
+          <View style={styles.subscriptionBadge}>
+            <Ionicons name="flash" size={16} color={COLORS.primary} />
+            <Text style={styles.subscriptionBadgeText}>
+              {user.subscriptionType === 'pro_plus' ? 'Pro+ Active' : 'Pro Active'}
+              {user.subscriptionExpiry
+                ? ` · renews ${new Date(user.subscriptionExpiry).toLocaleDateString()}`
+                : ''}
+            </Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.upgradeBtn}
+            onPress={() => setSubscriptionModalVisible(true)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="flash" size={18} color={COLORS.white} />
+            <Text style={styles.upgradeBtnText}>Upgrade to Pro</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Appearance</Text>
@@ -258,6 +416,11 @@ export default function SettingsScreen() {
       </TouchableOpacity>
 
       <Text style={styles.version}>Version 1.0.0</Text>
+
+      <SubscriptionModal
+        visible={subscriptionModalVisible}
+        onClose={() => setSubscriptionModalVisible(false)}
+      />
     </ScrollView>
   );
 }

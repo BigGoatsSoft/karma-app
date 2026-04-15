@@ -8,39 +8,45 @@ export interface ChatSession {
   messages: ChatMessage[];
 }
 
-const SESSIONS_KEY = '@karma_chat_sessions';
-const CURRENT_ID_KEY = '@karma_current_session_id';
+/** Per-user keys so Apple / Google / email accounts do not share one device cache. */
+function sessionsKey(userId: string) {
+  return `@karma_chat_sessions_${userId}`;
+}
 
-export async function loadSessions(): Promise<ChatSession[]> {
+function currentSessionIdKey(userId: string) {
+  return `@karma_current_session_id_${userId}`;
+}
+
+export async function loadSessions(userId: string): Promise<ChatSession[]> {
   try {
-    const raw = await AsyncStorage.getItem(SESSIONS_KEY);
+    const raw = await AsyncStorage.getItem(sessionsKey(userId));
     return raw ? (JSON.parse(raw) as ChatSession[]) : [];
   } catch {
     return [];
   }
 }
 
-export async function upsertSession(session: ChatSession): Promise<void> {
+export async function upsertSession(userId: string, session: ChatSession): Promise<void> {
   try {
-    const all = await loadSessions();
+    const all = await loadSessions(userId);
     const idx = all.findIndex((s) => s.id === session.id);
     if (idx >= 0) {
       all[idx] = session;
     } else {
       all.unshift(session);
     }
-    await AsyncStorage.setItem(SESSIONS_KEY, JSON.stringify(all));
+    await AsyncStorage.setItem(sessionsKey(userId), JSON.stringify(all));
   } catch {
     // ignore storage errors
   }
 }
 
-export async function loadCurrentSessionId(): Promise<string | null> {
-  return AsyncStorage.getItem(CURRENT_ID_KEY);
+export async function loadCurrentSessionId(userId: string): Promise<string | null> {
+  return AsyncStorage.getItem(currentSessionIdKey(userId));
 }
 
-export async function saveCurrentSessionId(id: string): Promise<void> {
-  await AsyncStorage.setItem(CURRENT_ID_KEY, id);
+export async function saveCurrentSessionId(userId: string, id: string): Promise<void> {
+  await AsyncStorage.setItem(currentSessionIdKey(userId), id);
 }
 
 export function createSession(messages: ChatMessage[] = []): ChatSession {

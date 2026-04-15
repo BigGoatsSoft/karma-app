@@ -13,14 +13,27 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.biggoatssoft.karmatracker",
+      "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.developer.applesignin": [
+          "Default",
+          "Default"
+        ]
+      },
       "infoPlist": {
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
               "com.googleusercontent.apps.279743954969-7qnfkv9c22ppq5k117so89sbrqb1gtqq"
             ]
+          },
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.279743954969-7qnfkv9c22ppq5k117so89sbrqb1gtqq"
+            ]
           }
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -31,7 +44,9 @@
     },
     "plugins": [
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "react-native-iap",
+      "expo-apple-authentication"
     ],
     "extra": {
       "eas": {

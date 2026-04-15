@@ -23,6 +23,7 @@ import { ChatMessageBubble } from '../components/chat/ChatMessageBubble';
 import { ChatEmptyState } from '../components/chat/ChatEmptyState';
 import { ChatComposer } from '../components/chat/ChatComposer';
 import { ChatHistoryDrawer } from '../components/chat/ChatHistoryDrawer';
+import { SubscriptionModal } from '../components/subscription/SubscriptionModal';
 import {
   type ChatSession,
   loadSessions,
@@ -40,6 +41,8 @@ export default function ChatScreen() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [newChatConfirmVisible, setNewChatConfirmVisible] = useState(false);
+  const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
+  const [outOfCoins, setOutOfCoins] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
   const flatListRef = useRef<FlatList>(null);
@@ -140,40 +143,51 @@ export default function ChatScreen() {
   );
 
   useEffect(() => {
-    initSessions();
-  }, []);
+    const userId = user?.id;
+    if (!userId) return;
 
-  const initSessions = async () => {
-    try {
-      const [savedSessions, currentId, serverHistory] = await Promise.all([
-        loadSessions(),
-        loadCurrentSessionId(),
-        apiService.getUserKarma().catch(() => [] as KarmaResponse[]),
-      ]);
-
-      if (savedSessions.length === 0) {
-        const formattedMessages: ChatMessage[] = serverHistory.flatMap((entry: KarmaResponse) => [
-          { ...entry, id: `user-${entry.id}`, isUser: true },
-          { ...entry, id: `bot-${entry.id}`, isUser: false },
+    let cancelled = false;
+    (async () => {
+      setInitialLoading(true);
+      try {
+        const [savedSessions, currentId, serverHistory] = await Promise.all([
+          loadSessions(userId),
+          loadCurrentSessionId(userId),
+          apiService.getUserKarma().catch(() => [] as KarmaResponse[]),
         ]);
-        const initialSession = createSession(formattedMessages);
-        await upsertSession(initialSession);
-        await saveCurrentSessionId(initialSession.id);
-        setSessions([initialSession]);
-        setCurrentSession(initialSession);
-        setMessages(formattedMessages);
-      } else {
-        const active = savedSessions.find((s) => s.id === currentId) ?? savedSessions[0];
-        setSessions(savedSessions);
-        setCurrentSession(active);
-        setMessages(active.messages);
+        if (cancelled) return;
+
+        if (savedSessions.length === 0) {
+          const formattedMessages: ChatMessage[] = serverHistory.flatMap((entry: KarmaResponse) => [
+            { ...entry, id: `user-${entry.id}`, isUser: true },
+            { ...entry, id: `bot-${entry.id}`, isUser: false },
+          ]);
+          const initialSession = createSession(formattedMessages);
+          await upsertSession(userId, initialSession);
+          await saveCurrentSessionId(userId, initialSession.id);
+          if (cancelled) return;
+          setSessions([initialSession]);
+          setCurrentSession(initialSession);
+          setMessages(formattedMessages);
+        } else {
+          const active = savedSessions.find((s) => s.id === currentId) ?? savedSessions[0];
+          setSessions(savedSessions);
+          setCurrentSession(active);
+          setMessages(active.messages);
+        }
+      } catch (error) {
+        console.error('Error initialising sessions:', error);
+      } finally {
+        if (!cancelled) setInitialLoading(false);
       }
-    } catch (error) {
-      console.error('Error initialising sessions:', error);
-    } finally {
-      setInitialLoading(false);
-    }
-  };
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  const userId = user?.id;
 
   const persistCurrentSession = async (session: ChatSession, updatedMessages: ChatMessage[]) => {
     const firstUserMsg = updatedMessages.find((m) => m.isUser);
@@ -192,11 +206,12 @@ export default function ChatScreen() {
       }
       return [updated, ...prev];
     });
-    await upsertSession(updated);
+    if (!userId) return;
+    await upsertSession(userId, updated);
   };
 
   const handleSendMessage = async () => {
-    if (!inputText.trim() || loading || !currentSession) return;
+    if (!inputText.trim() || loading || !currentSession || !userId) return;
 
     const userMessage: ChatMessage = {
       id: `temp-${Date.now()}`,
@@ -225,9 +240,15 @@ export default function ChatScreen() {
       await persistCurrentSession(currentSession, finalMessages);
       await refreshUser();
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-    } catch {
-      Alert.alert('Error', 'Could not send the message');
+    } catch (error: unknown) {
+      const status = (error as { response?: { status?: number } })?.response?.status;
       setMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
+      if (status === 402) {
+        setOutOfCoins(true);
+        setSubscriptionModalVisible(true);
+      } else {
+        Alert.alert('Error', 'Could not send the message');
+      }
     } finally {
       setLoading(false);
     }
@@ -239,13 +260,14 @@ export default function ChatScreen() {
   };
 
   const confirmNewChat = async () => {
+    if (!userId) return;
     setNewChatConfirmVisible(false);
     if (currentSession) {
       await persistCurrentSession(currentSession, messages);
     }
     const newSession = createSession();
-    await upsertSession(newSession);
-    await saveCurrentSessionId(newSession.id);
+    await upsertSession(userId, newSession);
+    await saveCurrentSessionId(userId, newSession.id);
     setCurrentSession(newSession);
     setSessions((prev) => [newSession, ...prev.filter((s) => s.id !== newSession.id)]);
     setMessages([]);
@@ -253,10 +275,11 @@ export default function ChatScreen() {
   };
 
   const handleSelectSession = async (session: ChatSession) => {
+    if (!userId) return;
     if (currentSession && currentSession.id !== session.id) {
       await persistCurrentSession(currentSession, messages);
     }
-    await saveCurrentSessionId(session.id);
+    await saveCurrentSessionId(userId, session.id);
     setCurrentSession(session);
     setMessages(session.messages);
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 50);
@@ -320,10 +343,19 @@ export default function ChatScreen() {
           onSend={handleSendMessage}
           loading={loading}
           onNewChat={handleNewChatRequest}
-          personality={user?.botPersonality ?? 'neutral'}
+          personality={user?.botPersonality ?? 'usual'}
           onPersonalityChange={handlePersonalityChange}
+          karmaCoins={user?.karmaCoins ?? 0}
+          subscriptionType={user?.subscriptionType ?? 'free'}
+          onUpgradePress={() => { setOutOfCoins(false); setSubscriptionModalVisible(true); }}
         />
       </KeyboardAvoidingView>
+
+      <SubscriptionModal
+        visible={subscriptionModalVisible}
+        outOfCoins={outOfCoins}
+        onClose={() => setSubscriptionModalVisible(false)}
+      />
 
       {/* New Chat confirmation */}
       <Modal

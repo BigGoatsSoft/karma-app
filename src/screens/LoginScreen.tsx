@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { FONT } from '../constants/fonts';
@@ -25,7 +26,7 @@ export default function LoginScreen({ navigation }: Props) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn, signInWithGoogle, signInWithApple } = useAuth();
 
   const styles = useMemo(
     () =>
@@ -47,6 +48,7 @@ export default function LoginScreen({ navigation }: Props) {
           fontSize: 16,
           fontFamily: FONT.semibold,
         },
+        appleButton: { height: 56, marginTop: 12, borderRadius: 12, overflow: 'hidden' },
         signUpLink: { marginTop: 24, alignItems: 'center' },
         signUpLinkText: { color: COLORS.textMuted, fontSize: 14, fontFamily: FONT.regular },
         signUpLinkBold: { color: COLORS.primary, fontFamily: FONT.bold },
@@ -78,6 +80,17 @@ export default function LoginScreen({ navigation }: Props) {
       await signInWithGoogle();
     } catch {
       Alert.alert('Error', 'Could not sign in with Google');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAppleLogin = async () => {
+    setLoading(true);
+    try {
+      await signInWithApple();
+    } catch (error: unknown) {
+      Alert.alert('Error', getApiErrorMessage(error, 'Could not sign in with Apple'));
     } finally {
       setLoading(false);
     }
@@ -116,6 +129,15 @@ export default function LoginScreen({ navigation }: Props) {
           <Ionicons name="logo-google" size={20} color={COLORS.primary} />
           <Text style={styles.googleButtonText}>Sign in with Google</Text>
         </TouchableOpacity>
+        {Platform.OS === 'ios' && (
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+            cornerRadius={12}
+            style={styles.appleButton}
+            onPress={handleAppleLogin}
+          />
+        )}
         <TouchableOpacity
           style={styles.signUpLink}
           onPress={() => navigation.navigate('SignUp')}

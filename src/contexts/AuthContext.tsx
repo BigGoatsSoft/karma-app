@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect, useRef, ReactNod
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { Platform } from 'react-native';
 import { makeRedirectUri } from 'expo-auth-session';
 import apiService, { setOnUnauthorized } from '../services/api';
@@ -37,12 +38,16 @@ interface AuthContextData {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, name: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
   updateUserData: (data: Partial<User>) => void;
   refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
+
+export const isAppleAuthAvailable = (): Promise<boolean> =>
+  AppleAuthentication.isAvailableAsync();
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -154,6 +159,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }
 
+  async function signInWithApple() {
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error('Apple Sign In did not return an identity token');
+      }
+
+      const fullName = [
+        credential.fullName?.givenName,
+        credential.fullName?.familyName,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .trim() || null;
+
+      const response = await apiService.loginWithApple(credential.identityToken, fullName);
+      await storeTokens(response);
+      await fetchUser();
+    } catch (error: unknown) {
+      const code = (error as { code?: string }).code;
+      if (code === 'ERR_REQUEST_CANCELED') return; // User cancelled — not an error
+      console.error('Apple sign in error:', error);
+      throw error;
+    }
+  }
+
   async function signOut() {
     try {
       await AsyncStorage.multiRemove(['accessToken', 'refreshToken']);
@@ -184,6 +221,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         signIn,
         signUp,
         signInWithGoogle,
+        signInWithApple,
         signOut,
         updateUserData,
         refreshUser,

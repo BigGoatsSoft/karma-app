@@ -26,6 +26,9 @@ interface Props {
   onNewChat: () => void;
   personality: User['botPersonality'];
   onPersonalityChange: (p: User['botPersonality']) => void;
+  karmaCoins?: number;
+  subscriptionType?: string;
+  onUpgradePress: () => void;
 }
 
 export function ChatComposer({
@@ -36,6 +39,9 @@ export function ChatComposer({
   onNewChat,
   personality,
   onPersonalityChange,
+  karmaCoins = 0,
+  subscriptionType = 'free',
+  onUpgradePress,
 }: Props) {
   const { colors: COLORS } = useTheme();
   const [personaOpen, setPersonaOpen] = useState(false);
@@ -93,6 +99,44 @@ export function ChatComposer({
           flexDirection: 'row',
           alignItems: 'center',
           paddingLeft: 4,
+          gap: 8,
+        },
+        coinsBadge: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 4,
+          backgroundColor: COLORS.background,
+          borderRadius: 14,
+          paddingHorizontal: 9,
+          paddingVertical: 5,
+          borderWidth: 1,
+          borderColor: COLORS.lightGray,
+        },
+        coinsBadgeText: {
+          fontSize: 13,
+          fontFamily: FONT.semibold,
+          color: COLORS.textMuted,
+        },
+        coinsLow: {
+          borderColor: '#F59E0B44',
+          backgroundColor: '#F59E0B0d',
+        },
+        coinsLowText: {
+          color: '#F59E0B',
+        },
+        upgradePill: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 4,
+          backgroundColor: COLORS.primary,
+          borderRadius: 14,
+          paddingHorizontal: 10,
+          paddingVertical: 5,
+        },
+        upgradePillText: {
+          fontSize: 12,
+          fontFamily: FONT.bold,
+          color: COLORS.white,
         },
         personaPill: {
           flexDirection: 'row',
@@ -213,7 +257,7 @@ export function ChatComposer({
         </TouchableOpacity>
       </View>
 
-      {/* Persona selector row */}
+      {/* Persona selector + coins + upgrade row */}
       <View style={styles.personaRow}>
         <TouchableOpacity
           style={styles.personaPill}
@@ -224,6 +268,30 @@ export function ChatComposer({
           <Text style={styles.personaPillText}>{currentPersona.label}</Text>
           <Ionicons name="chevron-down" size={12} color={COLORS.textMuted} />
         </TouchableOpacity>
+
+        {/* Coins badge */}
+        <TouchableOpacity
+          style={[styles.coinsBadge, karmaCoins <= 30 && styles.coinsLow]}
+          onPress={onUpgradePress}
+          activeOpacity={0.7}
+        >
+          <Text style={{ fontSize: 12 }}>🪙</Text>
+          <Text style={[styles.coinsBadgeText, karmaCoins <= 30 && styles.coinsLowText]}>
+            {karmaCoins}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Upgrade to Pro pill — hidden if already subscribed */}
+        {subscriptionType === 'free' && (
+          <TouchableOpacity
+            style={styles.upgradePill}
+            onPress={onUpgradePress}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="flash" size={12} color={COLORS.white} />
+            <Text style={styles.upgradePillText}>Upgrade to Pro</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Persona picker sheet */}

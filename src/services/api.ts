@@ -126,6 +126,14 @@ class ApiService {
     return data;
   }
 
+  async loginWithApple(identityToken: string, fullName?: string | null): Promise<AuthResponse> {
+    const { data } = await this.api.post<AuthResponse>('/loginWithApple', {
+      identityToken,
+      ...(fullName && { fullName }),
+    });
+    return data;
+  }
+
   async getUser(): Promise<User> {
     const { data } = await this.api.get<User>('/getUser');
     return data;
@@ -143,6 +151,15 @@ class ApiService {
 
   async getKarma(text: string): Promise<KarmaResponse> {
     const { data } = await this.api.post<KarmaResponse>('/getKarma', { text });
+    return data;
+  }
+
+  async activateSubscription(subscriptionType: string, receipt?: string, purchaseToken?: string): Promise<User> {
+    const { data } = await this.api.post<User>('/activateSubscription', {
+      subscriptionType,
+      ...(receipt && { receipt }),
+      ...(purchaseToken && { purchaseToken }),
+    });
     return data;
   }
 }

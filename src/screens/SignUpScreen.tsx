@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { FONT } from '../constants/fonts';
@@ -10,6 +12,7 @@ import { AuthScreenLayout } from '../components/auth/AuthScreenLayout';
 import { SignUpHeader } from '../components/auth/SignUpHeader';
 import { FormTextField, PasswordToggle } from '../components/auth/FormTextField';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
+import { AuthDivider } from '../components/auth/AuthDivider';
 
 type SignUpScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'SignUp'>;
 
@@ -25,18 +28,54 @@ export default function SignUpScreen({ navigation }: Props) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signUp } = useAuth();
+  const { signUp, signInWithApple, signInWithGoogle } = useAuth();
 
   const styles = useMemo(
     () =>
       StyleSheet.create({
         form: { width: '100%' },
+        googleButton: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: COLORS.surface,
+          height: 56,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: COLORS.primary,
+          gap: 8,
+          marginBottom: 0,
+        },
+        googleButtonText: { color: COLORS.primary, fontSize: 16, fontFamily: FONT.semibold },
+        appleButton: { height: 56, marginTop: 12, borderRadius: 12, overflow: 'hidden' },
         loginLink: { marginTop: 24, alignItems: 'center' },
         loginLinkText: { color: COLORS.textMuted, fontSize: 14, fontFamily: FONT.regular },
         loginLinkBold: { color: COLORS.primary, fontFamily: FONT.bold },
       }),
     [COLORS]
   );
+
+  const handleGoogleSignUp = async () => {
+    setLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch {
+      Alert.alert('Error', 'Could not sign in with Google');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAppleSignUp = async () => {
+    setLoading(true);
+    try {
+      await signInWithApple();
+    } catch (error: unknown) {
+      Alert.alert('Error', getApiErrorMessage(error, 'Could not sign in with Apple'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSignUp = async () => {
     if (!name || !email || !password || !confirmPassword) {
@@ -100,6 +139,24 @@ export default function SignUpScreen({ navigation }: Props) {
           autoCapitalize="none"
         />
         <PrimaryButton title="Create account" loading={loading} onPress={handleSignUp} />
+        <AuthDivider />
+        <TouchableOpacity
+          style={styles.googleButton}
+          onPress={handleGoogleSignUp}
+          disabled={loading}
+        >
+          <Ionicons name="logo-google" size={20} color={COLORS.primary} />
+          <Text style={styles.googleButtonText}>Continue with Google</Text>
+        </TouchableOpacity>
+        {Platform.OS === 'ios' && (
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+            cornerRadius={12}
+            style={styles.appleButton}
+            onPress={handleAppleSignUp}
+          />
+        )}
         <TouchableOpacity
           style={styles.loginLink}
           onPress={() => navigation.navigate('Login')}
