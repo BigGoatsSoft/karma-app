@@ -45,7 +45,7 @@
     "plugins": [
       "expo-font",
       "expo-web-browser",
-      "react-native-iap",
+      "expo-iap",
       "expo-apple-authentication"
     ],
     "extra": {

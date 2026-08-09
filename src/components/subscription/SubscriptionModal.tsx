@@ -21,7 +21,7 @@ import {
   purchaseErrorListener,
   finishTransaction,
   type PurchaseCommon,
-} from 'react-native-iap';
+} from 'expo-iap';
 import { FONT } from '../../constants/fonts';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
